@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساعد توزيع الخبز</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #27ae60;
+            --danger-color: #c0392b;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 15px;
+            color: #333;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: var(--primary-color);
+            font-size: 24px;
+            margin: 5px 0;
+        }
+        .date-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            background: #e9ecef;
+            padding: 5px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            color: #555;
+        }
+        .tab-btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+        .section {
+            display: none;
+        }
+        .section.active {
+            display: block;
+        }
+        .card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card.done {
+            background: #e8f8f5;
+            text-decoration: line-through;
+            color: #7f8c8d;
+        }
+        .btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-danger {
+            background: var(--danger-color);
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .form-group {
+            margin-bottom: 10px;
+            text-align: right;
+        }
+        .days-selector label {
+            display: inline-block;
+            margin-left: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🍞 توزيع الخبز</h1>
+        <div class="date-badge" id="current-day-badge">اليوم: جاري التحميل...</div>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('today')">توزيع اليوم</button>
+        <button class="tab-btn" onclick="switchTab('remaining')">من بقي؟</button>
+        <button class="tab-btn" onclick="switchTab('subscribers')">المشتركين</button>
+    </div>
+
+    <!-- قسم توزيع اليوم -->
+    <div id="today" class="section active">
+        <h3>قائمة المشتركين ليوم <span id="today-name-label"></span></h3>
+        <div id="today-list"></div>
+    </div>
+
+    <!-- قسم من بقي -->
+    <div id="remaining" class="section">
+        <h3>المشتركين الذين لم يستلموا بعد</h3>
+        <div id="remaining-list"></div>
+    </div>
+
+    <!-- قسم المشتركين والاشتراكات -->
+    <div id="subscribers" class="section">
+        <h3>إضافة مشترك جديد</h3>
+        <div class="card" style="flex-direction: column; align-items: stretch;">
+            <div class="form-group">
+                <label>اسم الزبون:</label>
+                <input type="text" id="sub-name" placeholder="مثال: أبو أحمد">
+            </div>
+            <div class="form-group">
+                <label>عدد الأرغفة / الكمية:</label>
+                <input type="number" id="sub-qty" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label>أيام الاستلام:</label>
+                <div class="days-selector">
+                    <label><input type="checkbox" name="days" value="السبت" checked> السبت</label>
+                    <label><input type="checkbox" name="days" value="الأحد" checked> الأحد</label>
+                    <label><input type="checkbox" name="days" value="الإثنين" checked> الإثنين</label>
+                    <label><input type="checkbox" name="days" value="الثلاثاء" checked> الثلاثاء</label>
+                    <label><input type="checkbox" name="days" value="الأربعاء" checked> الأربعاء</label>
+                    <label><input type="checkbox" name="days" value="الخميس" checked> الخميس</label>
+                </div>
+            </div>
+            <button class="btn" onclick="addSubscriber()">حفظ المشترك</button>
+        </div>
+
+        <h3>قائمة المشتركين المسجلين</h3>
+        <div id="subscribers-list"></div>
+    </div>
+
+    <script>
+        // أيام الأسبوع
+        const daysOfWeek = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+        const todayIndex = new Date().getDay();
+        const currentDayName = daysOfWeek[todayIndex];
+
+        document.getElementById('current-day-badge').innerText = `اليوم: ${currentDayName}`;
+        document.getElementById('today-name-label').innerText = currentDayName;
+
+        // قاعدة بيانات وهمية محلية (تخزن في المتصفح LocalStorage)
+        let subscribers = JSON.parse(localStorage.getItem('bread_subscribers')) || [];
+        // حالات الاستلام لليوم الحالي: { id: true/false }
+        let dailyStatus = JSON.parse(localStorage.getItem(`bread_status_${currentDayName}`)) || {};
+
+        function saveData() {
+            localStorage.setItem('bread_subscribers', JSON.stringify(subscribers));
+            localStorage.setItem(`bread_status_${currentDayName}`, JSON.stringify(dailyStatus));
+            renderAll();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            if(tabId === 'remaining') renderRemaining();
+        }
+
+        function addSubscriber() {
+            const name = document.getElementById('sub-name').value;
+            const qty = document.getElementById('sub-qty').value;
+            const selectedDays = Array.from(document.querySelectorAll('input[name="days"]:checked')).map(cb => cb.value);
+
+            if(!name) {
+                alert('الرجاء إدخال اسم الزبون');
+                return;
+            }
+
+            const newSub = {
+                id: Date.now(),
+                name: name,
+                qty: qty,
+                days: selectedDays,
+                exceptionToday: false // لتعديل استثنائي لليوم
+            };
+
+            subscribers.push(newSub);
+            document.getElementById('sub-name').value = '';
+            saveData();
+            alert('تم إضافة المشترك بنجاح');
+        }
+
+        function toggleStatus(id) {
+            dailyStatus[id] = !dailyStatus[id];
+            saveData();
+        }
+
+        function toggleException(id) {
+            const sub = subscribers.find(s => s.id === id);
+            if(sub) {
+                sub.exceptionToday = !sub.exceptionToday;
+                saveData();
+            }
+        }
+
+        function deleteSubscriber(id) {
+            subscribers = subscribers.filter(s => s.id !== id);
+            delete dailyStatus[id];
+            saveData();
+        }
+
+        function renderAll() {
+            // 1. عرض توزيع اليوم
+            const todayListEl = document.getElementById('today-list');
+            todayListEl.innerHTML = '';
+            
+            // فلترة المشتركين اللي عندهم استلام اليوم وما عندهم استثناء إيقاف اليوم
+            const todaySubs = subscribers.filter(s => s.days.includes(currentDayName) && !s.exceptionToday);
+
+            if(todaySubs.length === 0) {
+                todayListEl.innerHTML = '<p style="text-align:center; color:#888;">لا يوجد مشتركين لهذا اليوم</p>';
+            }
+
+            todaySubs.forEach(sub => {
+                const isDone = dailyStatus[sub.id] || false;
+                todayListEl.innerHTML += `
+                    <div class="card ${isDone ? 'done' : ''}">
+                        <div>
+                            <strong>${sub.name}</strong> (${sub.qty} أرغفة)
+                        </div>
+                        <div>
+                            <button class="btn" style="background:${isDone ? '#e67e22' : 'var(--accent-color)'}" onclick="toggleStatus(${sub.id})">
+                                ${isDone ? 'تراجع' : 'استلم'}
+                            </button>
+                            <button class="btn btn-danger" style="padding: 8px 6px; margin-right: 5px;" onclick="toggleException(${sub.id})" title="إلغاء لليوم فقط">إيقاف اليوم</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 2. عرض قائمة المشتركين الإجمالية
+            const subsListEl = document.getElementById('subscribers-list');
+            subsListEl.innerHTML = '';
+            subscribers.forEach(sub => {
+                subsListEl.innerHTML += `
+                    <div class="card">
+                        <div>
+                            <strong>${sub.name}</strong> - (${sub.qty} أرغفة)<br>
+                            <small style="color:#666;">الأيام: ${sub.days.join(', ')}</small>
+                            ${sub.exceptionToday ? '<br><span style="color:red; font-size:12px;">(موقوف استثنائياً اليوم)</span>' : ''}
+                        </div>
+                        <button class="btn btn-danger" onclick="deleteSubscriber(${sub.id})">حذف</button>
+                    </div>
+                `;
+            });
+            renderRemaining();
+        }
+
+        function renderRemaining() {
+            const remListEl = document.getElementById('remaining-list');
+            remListEl.innerHTML = '';
+            
+            const todaySubs = subscribers.filter(s => s.days.includes(currentDayName) && !s.exceptionToday);
+            const remainingSubs = todaySubs.filter(s => !dailyStatus[s.id]);
+
+            if(remainingSubs.length === 0) {
+                remListEl.innerHTML = '<p style="text-align:center; color:var(--accent-color); font-weight:bold;">رائع! الجميع استلموا حصصهم اليوم.</p>';
+                return;
+            }
+
+            remainingSubs.forEach(sub => {
+                remListEl.innerHTML += `
+                    <div class="card">
+                        <div>
+                            <strong>${sub.name}</strong> (${sub.qty} أرغفة)
+                        </div>
+                        <button class="btn" onclick="toggleStatus(${sub.id})">تحديد كـ "استلم"</button>
+                    </div>
+                `;
+            });
+        }
+
+        renderAll();
+    </script>
+</body>
+</html>
